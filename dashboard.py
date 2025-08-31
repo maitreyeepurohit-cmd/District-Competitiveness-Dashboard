@@ -2,65 +2,65 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Load the dataset
-st.set_page_config(layout="wide", page_title="Dairy RCA Dashboard")
-st.title("🧀 District Competitiveness Dashboard: Dairy Sector (RCA-based)")
+# Title and description
+st.set_page_config(page_title="District Competitiveness Dashboard - Dairy Sector", layout="wide")
+st.title("🥛 District Competitiveness Dashboard: Dairy Sector")
+st.markdown("Explore the comparative advantage of districts in dairy manufacturing based on RCA × Index score.")
 
-# Upload CSV
-df = pd.read_csv("lovable.csv")
-
-# Identify time series columns
-time_cols = df.columns[13:]
-df[time_cols] = df[time_cols].replace("-", pd.NA).astype(float)
+# File uploader (you can skip this if hardcoding the file)
+uploaded_file = st.file_uploader("Upload the Combined RCA CSV File", type="csv")
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+else:
+    df = pd.read_csv("lovable.csv")  # Use local CSV if deployed or no upload
 
 # Sidebar filters
 with st.sidebar:
-    st.header("🔍 Filters")
-    states = df["State"].dropna().unique()
-    selected_state = st.selectbox("Select State", sorted(states))
+    st.header("🔍 Filter Options")
+    states = st.multiselect("Select State(s):", options=sorted(df['State'].dropna().unique()), default=[])
+    rca_threshold = st.slider("Minimum RCA × Index Value:", min_value=0.0, max_value=10.0, value=4.0, step=0.1)
 
-    districts = df[df["State"] == selected_state]["District"].dropna().unique()
-    selected_district = st.selectbox("Select District", sorted(districts))
+# Apply filters
+filtered_df = df.copy()
+if states:
+    filtered_df = filtered_df[filtered_df['State'].isin(states)]
+filtered_df = filtered_df[filtered_df['Combined Index'] >= rca_threshold]
 
-    rca_threshold = st.slider("Minimum RCA Threshold", 0.0, 10.0, 4.0, step=0.1)
+# RCA formula explanation
+st.markdown("""
+### 🧮 RCA Definition
 
-# Filter the data
-filtered_df = df[(df["State"] == selected_state) & (df["District"] == selected_district)]
+**Revealed Comparative Advantage (RCA)** is calculated as:
 
-# Show district details
-if not filtered_df.empty:
-    district_name = filtered_df["District"].values[0]
-    sub_sector = filtered_df["Sub-Sector"].values[0]
-    activity = filtered_df["Occupation/Activity"].values[0]
-    latest_date = time_cols[-1]
-    latest_rca = filtered_df[latest_date].values[0]
 
-    st.subheader(f"📍 Overview: {district_name}, {selected_state}")
-    st.markdown(f"- **Sub-Sector**: {sub_sector}")
-    st.markdown(f"- **Occupation/Activity**: {activity}")
-    st.metric("📊 Latest RCA Value", f"{latest_rca:.2f}", help="Latest RCA index value as of most recent date")
+This dashboard multiplies RCA by a normalized index to sharpen competitiveness.
 
-    # RCA Trend chart
-    rca_series = filtered_df[time_cols].T.reset_index()
-    rca_series.columns = ["Date", "RCA"]
-    rca_series["Date"] = pd.to_datetime(rca_series["Date"], errors="coerce", format="%d-%m-%Y")
-    rca_series = rca_series.dropna()
+- **RCA × Index > 4** typically implies strong competitiveness in dairy.
+""")
 
-    fig = px.line(rca_series, x="Date", y="RCA", title=f"📈 RCA Trend Over Time: {district_name}",
-                  markers=True, template="plotly_white")
-    fig.update_traces(line=dict(width=3))
-    st.plotly_chart(fig, use_container_width=True)
+# Top Districts Table
+st.markdown("### 🏆 Top Competitive Districts (Filtered)")
+st.dataframe(filtered_df[['State', 'District', 'Combined Index', 'Outstanding Credit', 'Occupation/Activity']].sort_values(by='Combined Index', ascending=False), use_container_width=True)
 
-# Top RCA districts in the latest quarter
-st.markdown("## 🏆 Top Performing Dairy Districts (Based on Latest RCA)")
-top_df = df[["State", "District", latest_date]].dropna()
-top_df = top_df[top_df[latest_date] >= rca_threshold]
-top_df_sorted = top_df.sort_values(by=latest_date, ascending=False).reset_index(drop=True)
+# Bar chart
+st.markdown("### 📊 RCA × Index by District")
+fig = px.bar(filtered_df.sort_values(by='Combined Index', ascending=False).head(20),
+             x='Combined Index',
+             y='District',
+             color='State',
+             orientation='h',
+             title="Top 20 Competitive Districts in Dairy Sector")
+fig.update_layout(yaxis={'categoryorder':'total ascending'})
+st.plotly_chart(fig, use_container_width=True)
 
-st.dataframe(top_df_sorted, use_container_width=True)
+# Top dairy industry for each district
+st.markdown("### 🧀 Top Dairy Activity by District")
+if 'Occupation/Activity' in filtered_df.columns:
+    top_activities = filtered_df.groupby('District')['Occupation/Activity'].first().reset_index()
+    st.dataframe(top_activities, use_container_width=True)
+else:
+    st.info("No Occupation/Activity column found in uploaded file.")
 
 # Footer
 st.markdown("---")
-st.markdown("**RCA Definition:**  
-> RCA = (Dairy Credit in District / Total Credit in District) ÷ (Total Dairy Credit across India / Total Food & Beverage Sector Credit across India).  
-RCA > 1 implies above-average specialization; RCA > 4 is considered strong comparative advantage.")
+st.markdown("🔗 Created by Maitreyi Purohit | Source: Y-Macro Analytics
