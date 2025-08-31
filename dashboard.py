@@ -61,6 +61,51 @@ if 'Occupation/Activity' in filtered_df.columns:
 else:
     st.info("No Occupation/Activity column found in uploaded file.")
 
+import pdfkit
+import tempfile
+import base64
+from io import BytesIO
+
+def convert_df_to_pdf(df, title="RCA District Report"):
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Title
+    elements.append(Paragraph(title, styles['Title']))
+
+    # Table
+    data = [df.columns.tolist()] + df.values.tolist()
+    table = Table(data)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#e0e0e0')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER')
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+st.markdown("---")
+st.subheader("📄 Export Filtered Data as PDF")
+
+if st.button("Export PDF"):
+    pdf_file = convert_df_to_pdf(filtered_df)
+    b64 = base64.b64encode(pdf_file.read()).decode()
+    href = f'<a href="data:application/pdf;base64,{b64}" download="RCA_District_Report.pdf">📥 Download PDF</a>'
+    st.markdown(href, unsafe_allow_html=True)
+
+
 # Footer
 st.markdown("""
 ---
