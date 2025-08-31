@@ -62,5 +62,10 @@ else:
     st.info("No Occupation/Activity column found in uploaded file.")
 
 # Footer
-st.markdown("---")
-st.markdown("🔗 Created by Maitreyi Purohit | Source: Y-Macro Analytics
+st.markdown("""
+---
+🔗 **Created by Maitreyi Purohit**  
+📊 **Source**: Y-Macro Analytics  
+🏭 **Model**: District Competitiveness based on RCA × Index for Dairy Sector
+""")
+
